@@ -1,12 +1,12 @@
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const dotenv = require('dotenv');
-const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
+dotenv.config();
 
-dotenv.config(); 
+const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
 
 exports.signup = async (req, res) => {
   const { name, email, password } = req.body;
@@ -18,11 +18,10 @@ exports.signup = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-
     user = new User({
       name,
       email,
-      password : hashedPassword,
+      password: hashedPassword,
     });
     await user.save();
     res.json(user);
@@ -32,38 +31,37 @@ exports.signup = async (req, res) => {
   }
 };
 
-
 exports.signin = async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password || email === "" || password === "") {
-    return res.status(400).json({ msg: "All Field is required" });
+    return res.status(400).json({ msg: "All fields are required" });
   }
 
   try {
-    const validuser = await User.findOne({ email });
-    if (!validuser) {
+    const validUser = await User.findOne({ email });
+    if (!validUser) {
       return res.status(404).json({ msg: "User not found" });
     }
-    const validpassword = await bcrypt.compare(password, validuser.password);
-    if (!validpassword) {
+    const validPassword = await bcrypt.compare(password, validUser.password);
+    if (!validPassword) {
       return res.status(400).json({ msg: "Invalid password" });
     }
     const token = jwt.sign(
-      { id: validuser._id, name: validuser.name,email: validuser.email,isAdmin: validuser.isAdmin },
+      { id: validUser._id, name: validUser.name, email: validUser.email, isAdmin: validUser.isAdmin },
       JWT_SECRET
     );
-    const { password: userPassword, ...rest } = validuser._doc;
+    const { password: userPassword, ...rest } = validUser._doc;
 
-    res.cookie("access-token", token, { httpOnly: true, sameSite: 'Strict', })
-    .json({ access_token:token}) // send the user details excluding the password
-    .status(200);
+    res.cookie("access-token", token, { httpOnly: true, sameSite: 'Strict' })
+      .json({ access_token: token }) // send the user details excluding the password
+      .status(200);
   } catch (error) {
     console.error(error);
     res.status(500).json({ msg: "Server Error" });
   }
 };
 
-exports.forgotpassword = async (req, res) => {
+exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   const user = await User.findOne({ email });
   if (!user) {
@@ -93,7 +91,7 @@ exports.forgotpassword = async (req, res) => {
       If you did not request this, please ignore this email and your password will remain unchanged.\n`,
   };
 
-  transporter.sendMail(mailOptions, (err, res) => {
+  transporter.sendMail(mailOptions, (err, info) => {
     if (err) {
       console.error('There was an error:', err);
       res.status(500).json({ success: false, message: 'Error sending email' });
@@ -103,8 +101,7 @@ exports.forgotpassword = async (req, res) => {
   });
 };
 
-
-exports.resetpassword = async (req, res) => {
+exports.resetPassword = async (req, res) => {
   const { token } = req.params;
   const { password } = req.body;
 
